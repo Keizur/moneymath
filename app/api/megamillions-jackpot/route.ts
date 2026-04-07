@@ -49,6 +49,7 @@ export async function GET() {
     if (!res.ok) throw new Error(`lotterypost.com responded ${res.status}`);
 
     const html = await res.text();
+    const htmlSnippet = html.slice(0, 500); // debug
 
     // Find the Mega Millions row in jackpotsTable
     const mmRowMatch = html.match(
@@ -57,7 +58,7 @@ export async function GET() {
 
     if (!mmRowMatch) {
       return NextResponse.json(
-        { error: "Could not find Mega Millions row" },
+        { error: "Could not find Mega Millions row", htmlSnippet, htmlLength: html.length },
         { status: 502 }
       );
     }
