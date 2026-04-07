@@ -4,9 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  { href: "/powerball", label: "Powerball" },
+  { href: "/powerball", label: "POWERBALL", powerball: true },
   { href: "/investment", label: "Investment" },
-  { href: "/i-won", label: "I Won — Now What?" },
 ];
 
 export default function Nav() {
@@ -23,10 +22,14 @@ export default function Nav() {
             <Link
               key={link.href}
               href={link.href}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                pathname === link.href
-                  ? "bg-green-50 text-green-700"
-                  : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                link.powerball
+                  ? pathname === link.href
+                    ? "bg-red-50 text-red-600 font-extrabold tracking-wide"
+                    : "text-red-500 font-extrabold tracking-wide hover:bg-red-50 hover:text-red-600"
+                  : pathname === link.href
+                  ? "bg-green-50 text-green-700 font-medium"
+                  : "text-gray-500 font-medium hover:text-gray-800 hover:bg-gray-50"
               }`}
             >
               {link.label}

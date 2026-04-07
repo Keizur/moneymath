@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { STATE_TAX_RATES } from "@/lib/taxRates";
 import { calculateLumpSum, calculateAnnuity, formatCurrency, formatMillions } from "@/lib/calculations";
 
@@ -109,6 +110,19 @@ export default function LotteryCalculator() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
+      {/* I Won link */}
+      <div className="flex justify-end mb-2">
+        <Link
+          href="/i-won"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-full transition-colors"
+        >
+          I Won — Now What?
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="text-center mb-10">
         {loading ? (
