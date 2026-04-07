@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 const links = [
   { href: "/powerball", label: "POWERBALL", powerball: true },
   { href: "/investment", label: "Investment" },
+  { href: "/mortgage", label: "Mortgage" },
+  { href: "/car-loan", label: "Car Loan" },
 ];
 
 export default function Nav() {
