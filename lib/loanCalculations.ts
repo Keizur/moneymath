@@ -15,6 +15,15 @@ export interface LoanResult {
   amortization: AmortizationYear[];
 }
 
+/** Reverse: given a max monthly payment, return the max loan principal */
+export function maxLoanFromPayment(monthlyPayment: number, annualRate: number, termMonths: number): number {
+  if (monthlyPayment <= 0) return 0;
+  const r = annualRate / 100 / 12;
+  if (r === 0) return monthlyPayment * termMonths;
+  const factor = Math.pow(1 + r, termMonths);
+  return monthlyPayment * (factor - 1) / (r * factor);
+}
+
 export function calculateLoan(
   principal: number,
   annualRate: number,

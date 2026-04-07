@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { calculateLoan } from "@/lib/loanCalculations";
+import { calculateLoan, maxLoanFromPayment } from "@/lib/loanCalculations";
 import { formatCurrency } from "@/lib/calculations";
 
 function parseDollar(raw: string) {
@@ -14,11 +14,20 @@ function fmtDollar(n: number) {
 const TERMS = [24, 36, 48, 60, 72, 84];
 
 export default function CarLoanCalculator() {
+  const [affordOpen, setAffordOpen] = useState(false);
+  const [incomeRaw, setIncomeRaw] = useState("");
+
   const [priceRaw, setPriceRaw] = useState("35,000");
   const [downRaw, setDownRaw] = useState("5,000");
   const [tradeRaw, setTradeRaw] = useState("");
   const [term, setTerm] = useState(60);
   const [rate, setRate] = useState("6.5");
+
+  const monthlyIncome = parseDollar(incomeRaw);
+  const maxCarPayment15 = monthlyIncome * 0.15; // 15% rule
+  const maxCarPayment10 = monthlyIncome * 0.10; // conservative 10%
+  const maxLoan15 = maxLoanFromPayment(maxCarPayment15, parseFloat(rate) || 0, term);
+  const maxCarPrice15 = maxLoan15 + parseDollar(downRaw) + parseDollar(tradeRaw);
 
   const vehiclePrice = parseDollar(priceRaw);
   const downPayment = parseDollar(downRaw);
@@ -46,6 +55,74 @@ export default function CarLoanCalculator() {
         <p className="text-gray-500 text-lg">
           Monthly payment, total interest, and the full picture on your auto loan.
         </p>
+      </div>
+
+      {/* Affordability Card */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4 overflow-hidden">
+        <button
+          onClick={() => setAffordOpen(!affordOpen)}
+          className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-lg">🚗</span>
+            <div className="text-left">
+              <p className="text-sm font-bold text-gray-900">How Much Can I Afford?</p>
+              <p className="text-xs text-gray-400">Based on your monthly take-home pay</p>
+            </div>
+          </div>
+          <svg className={`w-4 h-4 text-gray-400 transition-transform ${affordOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {affordOpen && (
+          <div className="px-6 pb-6 border-t border-gray-100">
+            <div className="mt-4 mb-4">
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Monthly Take-Home Pay</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="5,000"
+                  value={incomeRaw}
+                  onChange={(e) => setIncomeRaw(fmtDollar(parseDollar(e.target.value)))}
+                  className="w-full pl-7 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
+                />
+              </div>
+            </div>
+
+            {monthlyIncome > 0 && (
+              <div className="bg-purple-50 rounded-xl p-4">
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <p className="text-xs text-purple-600 opacity-70">Conservative (10%)</p>
+                    <p className="text-lg font-extrabold text-purple-700">{formatCurrency(maxCarPayment10)}/mo</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-purple-600 opacity-70">Max recommended (15%)</p>
+                    <p className="text-lg font-extrabold text-purple-700">{formatCurrency(maxCarPayment15)}/mo</p>
+                  </div>
+                </div>
+                <div className="bg-white rounded-lg px-3 py-2 mb-3 text-sm">
+                  <span className="text-gray-500">Max vehicle price at 15%: </span>
+                  <span className="font-bold text-gray-900">{formatCurrency(Math.round(maxCarPrice15 / 500) * 500)}</span>
+                  <span className="text-gray-400 text-xs ml-1">({term}mo at {rate}%)</span>
+                </div>
+                <button
+                  onClick={() => {
+                    const rounded = Math.round(maxCarPrice15 / 500) * 500;
+                    setPriceRaw(fmtDollar(rounded));
+                    setAffordOpen(false);
+                  }}
+                  className="w-full py-2 bg-purple-600 text-white text-sm font-semibold rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  Use this vehicle price →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
