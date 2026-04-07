@@ -3,17 +3,17 @@ import "./globals.css";
 import Nav from "@/components/Nav";
 
 export const metadata: Metadata = {
-  title: "Powerball Payout Calculator – Real After-Tax Take Home | MoneyMath",
+  title: "MoneyMath – Free Financial Calculators",
   description:
-    "Calculate your real Powerball payout after federal and state taxes. See exactly what you'd take home with lump sum vs annuity for all 50 states. Free, fast, and accurate.",
+    "Free financial calculators for real life. Powerball payout after taxes, investment compound interest, and more. Fast, accurate, no fluff.",
   keywords:
-    "powerball payout calculator, lottery after tax, powerball lump sum, powerball annuity, lottery tax calculator",
+    "financial calculator, powerball calculator, investment calculator, compound interest, lottery tax calculator",
   verification: {
     google: "QfSXI5Z0_CQg8ZC8vLC64FhNgHIbxL1kXsjJej5h0JQ",
   },
   openGraph: {
-    title: "Powerball Payout Calculator | MoneyMath",
-    description: "See exactly what you'd take home after taxes.",
+    title: "MoneyMath – Free Financial Calculators",
+    description: "Free financial calculators for real life.",
     type: "website",
   },
 };

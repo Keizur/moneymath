@@ -41,19 +41,35 @@ export default function InvestmentCalculator() {
   const [usingCustomRate, setUsingCustomRate] = useState(false);
   const [selectedBenchmark, setSelectedBenchmark] = useState<string | null>(null);
 
+  // Withdrawal
+  const [withdrawalEnabled, setWithdrawalEnabled] = useState(false);
+  const [withdrawalAge, setWithdrawalAge] = useState(65);
+  const [withdrawalRaw, setWithdrawalRaw] = useState("5,000");
+
   const initialAmount = parseDollarInput(initialRaw);
   const monthlyContribution = parseDollarInput(monthlyRaw);
+  const monthlyWithdrawal = parseDollarInput(withdrawalRaw);
   const benchmarkRate = BENCHMARKS.find((b) => b.ticker === selectedBenchmark)?.return ?? rate;
   const effectiveRate = selectedBenchmark
     ? benchmarkRate
     : usingCustomRate
     ? parseFloat(customRate) || 0
     : rate;
+
   const years = Math.max(retireAge - currentAge, 1);
 
   const result = useMemo(
-    () => calculateInvestment(initialAmount, monthlyContribution, effectiveRate, currentAge, retireAge),
-    [initialAmount, monthlyContribution, effectiveRate, currentAge, retireAge]
+    () =>
+      calculateInvestment(
+        initialAmount,
+        monthlyContribution,
+        effectiveRate,
+        currentAge,
+        retireAge,
+        withdrawalEnabled ? withdrawalAge : null,
+        monthlyWithdrawal
+      ),
+    [initialAmount, monthlyContribution, effectiveRate, currentAge, retireAge, withdrawalEnabled, withdrawalAge, monthlyWithdrawal]
   );
 
   function handleRatePreset(value: number) {
@@ -67,6 +83,54 @@ export default function InvestmentCalculator() {
     setSelectedBenchmark(ticker);
     setUsingCustomRate(false);
     setCustomRate("");
+  }
+
+  // SVG chart
+  const chartWidth = 600;
+  const chartHeight = 180;
+  const padL = 0;
+  const padR = 0;
+  const padT = 8;
+  const padB = 24;
+  const innerW = chartWidth - padL - padR;
+  const innerH = chartHeight - padT - padB;
+
+  const points = result.chartPoints;
+  const maxVal = Math.max(...points.map((p) => p.value), 1);
+  const minAge = points[0]?.age ?? currentAge;
+  const maxAge = points[points.length - 1]?.age ?? retireAge;
+  const ageRange = Math.max(maxAge - minAge, 1);
+
+  function toX(age: number) {
+    return padL + ((age - minAge) / ageRange) * innerW;
+  }
+  function toY(val: number) {
+    return padT + innerH - (val / maxVal) * innerH;
+  }
+
+  // Build SVG path
+  const growthPoints = points.filter((p) => p.phase === "growth");
+  const withdrawalPoints = points.filter((p) => p.phase === "withdrawal");
+
+  function buildPath(pts: typeof points) {
+    if (pts.length < 2) return "";
+    return pts.map((p, i) => `${i === 0 ? "M" : "L"} ${toX(p.age)} ${toY(p.value)}`).join(" ");
+  }
+
+  function buildArea(pts: typeof points) {
+    if (pts.length < 2) return "";
+    const line = buildPath(pts);
+    const lastX = toX(pts[pts.length - 1].age);
+    const firstX = toX(pts[0].age);
+    const bottom = padT + innerH;
+    return `${line} L ${lastX} ${bottom} L ${firstX} ${bottom} Z`;
+  }
+
+  // X-axis age labels
+  const ageLabelCount = 5;
+  const ageLabels: number[] = [];
+  for (let i = 0; i <= ageLabelCount; i++) {
+    ageLabels.push(Math.round(minAge + (ageRange * i) / ageLabelCount));
   }
 
   return (
@@ -153,7 +217,7 @@ export default function InvestmentCalculator() {
         </div>
 
         {/* Rate Selector */}
-        <div className="mb-8">
+        <div className="mb-6">
           <label className="block text-sm font-semibold text-gray-700 mb-2">
             Annual Return Rate
           </label>
@@ -163,13 +227,13 @@ export default function InvestmentCalculator() {
                 key={preset.value}
                 onClick={() => handleRatePreset(preset.value)}
                 className={`py-2.5 px-3 rounded-xl border text-sm font-semibold transition-all text-left ${
-                  !usingCustomRate && rate === preset.value
+                  !usingCustomRate && !selectedBenchmark && rate === preset.value
                     ? "bg-green-50 border-green-500 text-green-700"
                     : "border-gray-200 text-gray-600 hover:border-gray-300"
                 }`}
               >
                 <div>{preset.label}</div>
-                <div className={`text-xs font-bold mt-0.5 ${!usingCustomRate && rate === preset.value ? "text-green-600" : "text-gray-400"}`}>
+                <div className={`text-xs font-bold mt-0.5 ${!usingCustomRate && !selectedBenchmark && rate === preset.value ? "text-green-600" : "text-gray-400"}`}>
                   {preset.value}% · {preset.sub}
                 </div>
               </button>
@@ -203,18 +267,15 @@ export default function InvestmentCalculator() {
             Or pick a real benchmark <span className="font-normal normal-case text-gray-300">· approx. 10-yr avg return</span>
           </p>
           <div className="rounded-xl border border-gray-100 overflow-hidden">
-            {BENCHMARKS.map((b, i) => {
+            {BENCHMARKS.map((b) => {
               const isSelected = selectedBenchmark === b.ticker;
-              const isEtf = b.type === "ETF";
               return (
                 <button
                   key={b.ticker}
                   onClick={() => handleBenchmark(b.ticker)}
                   className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors text-left border-b last:border-b-0 border-gray-100 ${
-                    isSelected
-                      ? "bg-green-50 border-green-100"
-                      : "bg-white hover:bg-gray-50"
-                  } ${i === 0 ? "" : ""}`}
+                    isSelected ? "bg-green-50 border-green-100" : "bg-white hover:bg-gray-50"
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     <span className={`font-bold text-sm w-12 ${isSelected ? "text-green-700" : "text-gray-900"}`}>
@@ -222,7 +283,7 @@ export default function InvestmentCalculator() {
                     </span>
                     <div>
                       <span className={`text-sm ${isSelected ? "text-green-700" : "text-gray-600"}`}>{b.name}</span>
-                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded font-medium ${isEtf ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-500"}`}>
+                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded font-medium ${b.type === "ETF" ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-500"}`}>
                         {b.type}
                       </span>
                     </div>
@@ -241,8 +302,142 @@ export default function InvestmentCalculator() {
           <p className="text-xs text-gray-300 mt-2">Past performance does not predict future results.</p>
         </div>
 
+        {/* Withdrawal Toggle */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <label className="text-sm font-semibold text-gray-700">Monthly Withdrawal</label>
+            <button
+              onClick={() => setWithdrawalEnabled(!withdrawalEnabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                withdrawalEnabled ? "bg-green-500" : "bg-gray-200"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  withdrawalEnabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+          {withdrawalEnabled && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Start withdrawing at age</label>
+                <input
+                  type="number"
+                  min={currentAge + 1}
+                  max={89}
+                  value={withdrawalAge}
+                  onChange={(e) => setWithdrawalAge(parseInt(e.target.value) || currentAge + 1)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Monthly withdrawal</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">$</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={withdrawalRaw}
+                    onChange={(e) => setWithdrawalRaw(formatDollarInput(parseDollarInput(e.target.value)))}
+                    className="w-full pl-8 pr-4 py-3 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          {withdrawalEnabled && result.balanceDepletedAge && (
+            <p className="text-xs text-red-500 mt-2 font-medium">
+              ⚠ At this withdrawal rate, your balance runs out around age {result.balanceDepletedAge}.
+            </p>
+          )}
+          {withdrawalEnabled && !result.balanceDepletedAge && (
+            <p className="text-xs text-green-600 mt-2 font-medium">
+              ✓ Your portfolio sustains this withdrawal through age 90.
+            </p>
+          )}
+        </div>
+
         {/* Divider */}
         <div className="border-t border-gray-100 mb-6"></div>
+
+        {/* Chart */}
+        {points.length > 1 && (
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Portfolio Over Time</p>
+            <div className="w-full overflow-hidden rounded-xl bg-gray-50 px-2 pt-2 pb-1">
+              <svg
+                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                className="w-full"
+                preserveAspectRatio="none"
+              >
+                <defs>
+                  <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="#22c55e" stopOpacity="0.02" />
+                  </linearGradient>
+                  <linearGradient id="withdrawalGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f97316" stopOpacity="0.25" />
+                    <stop offset="100%" stopColor="#f97316" stopOpacity="0.02" />
+                  </linearGradient>
+                </defs>
+
+                {/* Growth area */}
+                {growthPoints.length > 1 && (
+                  <>
+                    <path d={buildArea(growthPoints)} fill="url(#growthGrad)" />
+                    <path d={buildPath(growthPoints)} fill="none" stroke="#22c55e" strokeWidth="2" strokeLinejoin="round" />
+                  </>
+                )}
+
+                {/* Withdrawal area — connect from last growth point */}
+                {withdrawalPoints.length > 1 && growthPoints.length > 0 && (
+                  <>
+                    <path
+                      d={buildArea([growthPoints[growthPoints.length - 1], ...withdrawalPoints])}
+                      fill="url(#withdrawalGrad)"
+                    />
+                    <path
+                      d={buildPath([growthPoints[growthPoints.length - 1], ...withdrawalPoints])}
+                      fill="none"
+                      stroke="#f97316"
+                      strokeWidth="2"
+                      strokeDasharray="6 3"
+                      strokeLinejoin="round"
+                    />
+                  </>
+                )}
+
+                {/* X-axis labels */}
+                {ageLabels.map((age) => (
+                  <text
+                    key={age}
+                    x={toX(age)}
+                    y={chartHeight - 4}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fill="#9ca3af"
+                  >
+                    {age}
+                  </text>
+                ))}
+              </svg>
+              <div className="flex items-center gap-4 px-1 pb-1">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-0.5 bg-green-500 rounded"></div>
+                  <span className="text-xs text-gray-400">Growth</span>
+                </div>
+                {withdrawalEnabled && (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-0.5 bg-orange-400 rounded" style={{ backgroundImage: "repeating-linear-gradient(90deg, #f97316 0, #f97316 4px, transparent 4px, transparent 7px)" }}></div>
+                    <span className="text-xs text-gray-400">Withdrawal</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Result Hero */}
         <div className="bg-green-50 rounded-2xl p-6 text-center mb-6">
@@ -294,15 +489,18 @@ export default function InvestmentCalculator() {
                 <div
                   key={i}
                   className={`flex justify-between items-center px-4 py-2.5 rounded-xl text-sm ${
-                    i === result.milestones.length - 1
+                    m.age === retireAge
                       ? "bg-green-50 font-semibold"
+                      : m.phase === "withdrawal"
+                      ? "bg-orange-50"
                       : "bg-gray-50"
                   }`}
                 >
-                  <span className={i === result.milestones.length - 1 ? "text-green-700" : "text-gray-600"}>
+                  <span className={m.age === retireAge ? "text-green-700" : m.phase === "withdrawal" ? "text-orange-600" : "text-gray-600"}>
                     Age {m.age} ({m.year}yr)
+                    {m.phase === "withdrawal" && <span className="text-xs ml-1 opacity-60">· withdrawing</span>}
                   </span>
-                  <span className={i === result.milestones.length - 1 ? "text-green-700" : "text-gray-900"}>
+                  <span className={m.age === retireAge ? "text-green-700" : m.phase === "withdrawal" ? "text-orange-600" : "text-gray-900"}>
                     {formatMillions(m.value)}
                   </span>
                 </div>
