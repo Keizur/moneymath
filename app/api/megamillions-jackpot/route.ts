@@ -4,25 +4,25 @@ export const revalidate = 3600;
 
 function parseDollarAmount(str: string): number | null {
   const clean = str.trim().replace(/,/g, "");
-  const match = clean.match(/\$?([\d.]+)\s*(M(?:illion)?|B(?:illion)?|T(?:rillion)?)?/i);
+  const match = clean.match(/\$?([\d.]+)\s*(M(?:illion)?|B(?:illion)?)?/i);
   if (!match) return null;
   const num = parseFloat(match[1]);
   const suffix = match[2]?.toLowerCase();
   if (!suffix) return Math.round(num);
   if (suffix.startsWith("b")) return Math.round(num * 1_000_000_000);
   if (suffix.startsWith("m")) return Math.round(num * 1_000_000);
-  if (suffix.startsWith("t")) return Math.round(num * 1_000_000_000_000);
   return Math.round(num);
 }
 
 function formatRaw(amount: number): string {
-  if (amount >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(amount % 1_000_000_000 === 0 ? 0 : 1)} Billion`;
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(amount % 1_000_000 === 0 ? 0 : 1)} Million`;
+  if (amount >= 1_000_000_000)
+    return `$${(amount / 1_000_000_000).toFixed(amount % 1_000_000_000 === 0 ? 0 : 1)} Billion`;
+  if (amount >= 1_000_000)
+    return `$${(amount / 1_000_000).toFixed(amount % 1_000_000 === 0 ? 0 : 1)} Million`;
   return `$${amount.toLocaleString()}`;
 }
 
 function parseDrawDateUTC(dateStr: string): string | null {
-  // "Tue, Apr 7, 2026" or "Apr 7, 2026"
   const match = dateStr.match(
     /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d+),?\s+(\d{4})/i
   );
@@ -34,81 +34,101 @@ function parseDrawDateUTC(dateStr: string): string | null {
   }
 }
 
+async function tryFetch(url: string): Promise<{ ok: boolean; status: number; html: string }> {
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+    next: { revalidate: 3600 },
+  });
+  const html = await res.text();
+  return { ok: res.ok, status: res.status, html };
+}
+
 export async function GET() {
-  try {
-    const res = await fetch("https://www.lotterypost.com/jackpots", {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9",
+  const sources = [
+    {
+      url: "https://www.lotterypost.com/jackpots",
+      extract: (html: string) => {
+        const mmRow = html.match(
+          /<tr[^>]*>(?:(?!<\/tr>)[\s\S])*?Mega\s+Millions(?:(?!<\/tr>)[\s\S])*?<\/tr>/i
+        );
+        if (!mmRow) return null;
+        const jackpotMatch = mmRow[0].match(/\$([\d,]+(?:\.\d+)?)\s*(Million|Billion|M\b|B\b)/i);
+        const dateMatch = mmRow[0].match(
+          /(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d+),?\s+(\d{4})/i
+        );
+        if (!jackpotMatch) return null;
+        const jackpot = parseDollarAmount(`${jackpotMatch[1]} ${jackpotMatch[2]}`);
+        if (!jackpot) return null;
+        return { jackpot, dateStr: dateMatch?.[0] ?? null };
       },
-      next: { revalidate: 3600 },
-    });
+    },
+    {
+      url: "https://www.lotteryusa.com/mega-millions/",
+      extract: (html: string) => {
+        const jackpotMatch = html.match(
+          /\$([\d,]+(?:\.\d+)?)\s*(Million|Billion)[\s\S]{0,50}?Cash\s+value/i
+        );
+        const cashMatch = html.match(
+          /Cash\s+value:?\s*\$([\d,]+(?:\.\d+)?)\s*(Million|Billion)/i
+        );
+        const dateMatch = html.match(
+          /(?:Today|Tomorrow|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)[^\n<"]{0,60}/i
+        );
+        if (!jackpotMatch) return null;
+        const jackpot = parseDollarAmount(`${jackpotMatch[1]} ${jackpotMatch[2]}`);
+        if (!jackpot) return null;
+        const cashFromMatch = cashMatch
+          ? parseDollarAmount(`${cashMatch[1]} ${cashMatch[2]}`)
+          : null;
+        return { jackpot, cashOverride: cashFromMatch ?? undefined, dateStr: dateMatch?.[0] ?? null };
+      },
+    },
+  ];
 
-    if (!res.ok) throw new Error(`lotterypost.com responded ${res.status}`);
+  const errors: string[] = [];
 
-    const html = await res.text();
-    const htmlSnippet = html.slice(0, 500); // debug
+  for (const source of sources) {
+    try {
+      const { ok, status, html } = await tryFetch(source.url);
+      if (!ok) {
+        errors.push(`${source.url} → HTTP ${status}`);
+        continue;
+      }
+      const result = source.extract(html);
+      if (!result) {
+        errors.push(`${source.url} → parse failed (html length: ${html.length}, snippet: ${html.slice(0, 200)})`);
+        continue;
+      }
 
-    // Find the Mega Millions row in jackpotsTable
-    const mmRowMatch = html.match(
-      /<tr[^>]*>(?:(?!<\/tr>)[\s\S])*?Mega\s+Millions(?:(?!<\/tr>)[\s\S])*?<\/tr>/i
-    );
+      const { jackpot, dateStr } = result;
+      const cashOverride = (result as { cashOverride?: number }).cashOverride;
+      const cashValue = cashOverride ?? Math.round(jackpot * 0.6);
+      const jackpotRaw = formatRaw(jackpot);
+      const cashValueRaw = formatRaw(cashValue);
+      const drawDateUTC = dateStr ? parseDrawDateUTC(dateStr) : null;
+      const nextDrawingLabel = dateStr ?? null;
 
-    if (!mmRowMatch) {
-      return NextResponse.json(
-        { error: "Could not find Mega Millions row", htmlSnippet, htmlLength: html.length },
-        { status: 502 }
-      );
+      return NextResponse.json({
+        jackpot,
+        cashValue,
+        cashValueRaw,
+        jackpotRaw,
+        nextDrawingLabel,
+        drawDateUTC,
+        fetchedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      errors.push(`${source.url} → ${err instanceof Error ? err.message : String(err)}`);
     }
-
-    const row = mmRowMatch[0];
-
-    // Jackpot: first $XX Million/Billion in the row
-    const jackpotMatch = row.match(
-      /\$([\d,]+(?:\.\d+)?)\s*(Million|Billion|M\b|B\b)/i
-    );
-    if (!jackpotMatch) {
-      return NextResponse.json(
-        { error: "Could not parse jackpot amount" },
-        { status: 502 }
-      );
-    }
-
-    const jackpot = parseDollarAmount(`${jackpotMatch[1]} ${jackpotMatch[2]}`);
-    if (!jackpot) {
-      return NextResponse.json(
-        { error: "Could not parse jackpot number" },
-        { status: 502 }
-      );
-    }
-
-    const jackpotRaw = formatRaw(jackpot);
-
-    // Cash value: ~60% of jackpot (lotterypost doesn't show it)
-    const cashValue = Math.round(jackpot * 0.6);
-    const cashValueRaw = formatRaw(cashValue);
-
-    // Draw date: "Tue, Apr 7, 2026" pattern in the row
-    const drawDateMatch = row.match(
-      /(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d+),?\s+(\d{4})/i
-    );
-    const drawDateStr = drawDateMatch?.[0] ?? null;
-    const nextDrawingLabel = drawDateStr ?? null;
-    const drawDateUTC = drawDateStr ? parseDrawDateUTC(drawDateStr) : null;
-
-    return NextResponse.json({
-      jackpot,
-      cashValue,
-      cashValueRaw,
-      jackpotRaw,
-      nextDrawingLabel,
-      drawDateUTC,
-      fetchedAt: new Date().toISOString(),
-    });
-  } catch (err) {
-    console.error("Mega Millions jackpot fetch error:", err);
-    return NextResponse.json({ error: "Failed to fetch jackpot" }, { status: 502 });
   }
+
+  return NextResponse.json({ error: "All sources failed", details: errors }, { status: 502 });
 }
