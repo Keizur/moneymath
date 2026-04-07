@@ -72,7 +72,8 @@ export default function InvestmentCalculator() {
         currentAge,
         retireAge,
         withdrawalEnabled ? withdrawalAge : null,
-        monthlyWithdrawal
+        monthlyWithdrawal,
+        withdrawalEnabled ? 90 : retireAge
       ),
     [initialAmount, monthlyContribution, effectiveRate, currentAge, retireAge, withdrawalEnabled, withdrawalAge, monthlyWithdrawal]
   );
