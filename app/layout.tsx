@@ -18,6 +18,9 @@ export const metadata: Metadata = {
     description: "Free financial calculators for real life.",
     type: "website",
   },
+  other: {
+    "google-adsense-account": "ca-pub-7559044648994834",
+  },
 };
 
 export default function RootLayout({
