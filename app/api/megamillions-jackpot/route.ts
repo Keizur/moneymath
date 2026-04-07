@@ -23,6 +23,20 @@ function formatRaw(amount: number): string {
 }
 
 function parseDrawDateUTC(dateStr: string): string | null {
+  if (/today/i.test(dateStr)) {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}T12:00:00.000Z`;
+  }
+  if (/tomorrow/i.test(dateStr)) {
+    const tom = new Date(Date.now() + 86400000);
+    const y = tom.getFullYear();
+    const m = String(tom.getMonth() + 1).padStart(2, "0");
+    const d = String(tom.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}T12:00:00.000Z`;
+  }
   const match = dateStr.match(
     /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d+),?\s+(\d{4})/i
   );
@@ -108,9 +122,7 @@ export async function GET() {
       }
       const result = source.extract(html);
       if (!result) {
-        const jackpotIdx = html.toLowerCase().indexOf("jackpot");
-        const debugSnippet = jackpotIdx >= 0 ? html.slice(jackpotIdx, jackpotIdx + 300) : html.slice(0, 300);
-        errors.push(`${source.url} → parse failed (len: ${html.length}, around 'jackpot': ${debugSnippet})`);
+        errors.push(`${source.url} → parse failed (html length: ${html.length})`);
         continue;
       }
 
