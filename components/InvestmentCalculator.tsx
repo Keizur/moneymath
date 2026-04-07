@@ -46,6 +46,11 @@ export default function InvestmentCalculator() {
   const [withdrawalAge, setWithdrawalAge] = useState(65);
   const [withdrawalRaw, setWithdrawalRaw] = useState("5,000");
 
+  // Tooltip
+  const [tooltip, setTooltip] = useState<{
+    age: number; value: number; svgX: number; svgY: number; phase: "growth" | "withdrawal";
+  } | null>(null);
+
   const initialAmount = parseDollarInput(initialRaw);
   const monthlyContribution = parseDollarInput(monthlyRaw);
   const monthlyWithdrawal = parseDollarInput(withdrawalRaw);
@@ -124,6 +129,23 @@ export default function InvestmentCalculator() {
     const firstX = toX(pts[0].age);
     const bottom = padT + innerH;
     return `${line} L ${lastX} ${bottom} L ${firstX} ${bottom} Z`;
+  }
+
+  function handleChartMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    if (points.length < 2) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pctX = (e.clientX - rect.left) / rect.width;
+    const age = minAge + pctX * ageRange;
+    const nearest = points.reduce((best, p) =>
+      Math.abs(p.age - age) < Math.abs(best.age - age) ? p : best
+    );
+    setTooltip({
+      age: nearest.age,
+      value: nearest.value,
+      svgX: toX(nearest.age),
+      svgY: toY(nearest.value),
+      phase: nearest.phase,
+    });
   }
 
   // X-axis age labels
@@ -367,70 +389,118 @@ export default function InvestmentCalculator() {
           <div className="mb-6">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Portfolio Over Time</p>
             <div className="w-full overflow-hidden rounded-xl bg-gray-50 px-2 pt-2 pb-1">
-              <svg
-                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                className="w-full"
-                preserveAspectRatio="none"
-              >
-                <defs>
-                  <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#22c55e" stopOpacity="0.02" />
-                  </linearGradient>
-                  <linearGradient id="withdrawalGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f97316" stopOpacity="0.25" />
-                    <stop offset="100%" stopColor="#f97316" stopOpacity="0.02" />
-                  </linearGradient>
-                </defs>
+              <div className="relative">
+                <svg
+                  viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                  className="w-full block"
+                  preserveAspectRatio="none"
+                  style={{ cursor: "crosshair" }}
+                  onMouseMove={handleChartMouseMove}
+                  onMouseLeave={() => setTooltip(null)}
+                >
+                  <defs>
+                    <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
+                      <stop offset="100%" stopColor="#22c55e" stopOpacity="0.02" />
+                    </linearGradient>
+                    <linearGradient id="withdrawalGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#f97316" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#f97316" stopOpacity="0.02" />
+                    </linearGradient>
+                  </defs>
 
-                {/* Growth area */}
-                {growthPoints.length > 1 && (
-                  <>
-                    <path d={buildArea(growthPoints)} fill="url(#growthGrad)" />
-                    <path d={buildPath(growthPoints)} fill="none" stroke="#22c55e" strokeWidth="2" strokeLinejoin="round" />
-                  </>
-                )}
+                  {/* Growth area */}
+                  {growthPoints.length > 1 && (
+                    <>
+                      <path d={buildArea(growthPoints)} fill="url(#growthGrad)" />
+                      <path d={buildPath(growthPoints)} fill="none" stroke="#22c55e" strokeWidth="2" strokeLinejoin="round" />
+                    </>
+                  )}
 
-                {/* Withdrawal area — connect from last growth point */}
-                {withdrawalPoints.length > 1 && growthPoints.length > 0 && (
-                  <>
-                    <path
-                      d={buildArea([growthPoints[growthPoints.length - 1], ...withdrawalPoints])}
-                      fill="url(#withdrawalGrad)"
-                    />
-                    <path
-                      d={buildPath([growthPoints[growthPoints.length - 1], ...withdrawalPoints])}
-                      fill="none"
-                      stroke="#f97316"
-                      strokeWidth="2"
-                      strokeDasharray="6 3"
-                      strokeLinejoin="round"
-                    />
-                  </>
-                )}
+                  {/* Withdrawal area */}
+                  {withdrawalPoints.length > 1 && growthPoints.length > 0 && (
+                    <>
+                      <path
+                        d={buildArea([growthPoints[growthPoints.length - 1], ...withdrawalPoints])}
+                        fill="url(#withdrawalGrad)"
+                      />
+                      <path
+                        d={buildPath([growthPoints[growthPoints.length - 1], ...withdrawalPoints])}
+                        fill="none"
+                        stroke="#f97316"
+                        strokeWidth="2"
+                        strokeDasharray="6 3"
+                        strokeLinejoin="round"
+                      />
+                    </>
+                  )}
 
-                {/* X-axis labels */}
-                {ageLabels.map((age) => (
-                  <text
-                    key={age}
-                    x={toX(age)}
-                    y={chartHeight - 4}
-                    textAnchor="middle"
-                    fontSize="10"
-                    fill="#9ca3af"
+                  {/* X-axis labels */}
+                  {ageLabels.map((age) => (
+                    <text
+                      key={age}
+                      x={toX(age)}
+                      y={chartHeight - 4}
+                      textAnchor="middle"
+                      fontSize="10"
+                      fill="#9ca3af"
+                    >
+                      {age}
+                    </text>
+                  ))}
+
+                  {/* Hover crosshair */}
+                  {tooltip && (
+                    <>
+                      <line
+                        x1={tooltip.svgX} y1={padT}
+                        x2={tooltip.svgX} y2={padT + innerH}
+                        stroke="#d1d5db"
+                        strokeWidth="1.5"
+                      />
+                      <circle
+                        cx={tooltip.svgX}
+                        cy={tooltip.svgY}
+                        r="5"
+                        fill={tooltip.phase === "withdrawal" ? "#f97316" : "#22c55e"}
+                        stroke="white"
+                        strokeWidth="2.5"
+                      />
+                    </>
+                  )}
+                </svg>
+
+                {/* Tooltip bubble */}
+                {tooltip && (
+                  <div
+                    className="absolute pointer-events-none z-10"
+                    style={{
+                      left: `${(tooltip.svgX / chartWidth) * 100}%`,
+                      top: `${(tooltip.svgY / chartHeight) * 100}%`,
+                      transform: "translate(-50%, calc(-100% - 12px))",
+                    }}
                   >
-                    {age}
-                  </text>
-                ))}
-              </svg>
-              <div className="flex items-center gap-4 px-1 pb-1">
+                    <div className={`rounded-lg px-3 py-2 text-xs whitespace-nowrap shadow-lg text-white ${
+                      tooltip.phase === "withdrawal" ? "bg-orange-500" : "bg-gray-900"
+                    }`}>
+                      <div className="opacity-75 font-medium">Age {tooltip.age}</div>
+                      <div className="font-extrabold text-sm">{formatCurrency(tooltip.value)}</div>
+                    </div>
+                    <div className={`w-2 h-2 rotate-45 mx-auto -mt-1 ${
+                      tooltip.phase === "withdrawal" ? "bg-orange-500" : "bg-gray-900"
+                    }`} />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4 px-1 pb-1 mt-1">
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-0.5 bg-green-500 rounded"></div>
                   <span className="text-xs text-gray-400">Growth</span>
                 </div>
                 {withdrawalEnabled && (
                   <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-0.5 bg-orange-400 rounded" style={{ backgroundImage: "repeating-linear-gradient(90deg, #f97316 0, #f97316 4px, transparent 4px, transparent 7px)" }}></div>
+                    <div className="w-3 h-0.5 bg-orange-400 rounded"></div>
                     <span className="text-xs text-gray-400">Withdrawal</span>
                   </div>
                 )}
