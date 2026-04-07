@@ -113,7 +113,7 @@ export default function MegaMillionsCalculator() {
         ) : jackpotData ? (
           <div className="inline-flex items-center gap-2 bg-yellow-50 text-yellow-700 text-sm font-medium px-4 py-1.5 rounded-full mb-4">
             <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
-            Next Drawing: {jackpotData.nextDrawingLabel ?? "Friday"} · 11:00 PM ET
+            Next Drawing: {jackpotData.nextDrawingLabel ?? "Friday at 11:00 PM ET"}
           </div>
         ) : (
           <div className="inline-flex items-center gap-2 bg-yellow-50 text-yellow-700 text-sm font-medium px-4 py-1.5 rounded-full mb-4">
