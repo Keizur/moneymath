@@ -1,0 +1,62 @@
+export interface StateData {
+  name: string;
+  rate: number; // as decimal e.g. 0.05 = 5%
+  note?: string;
+}
+
+export const STATE_TAX_RATES: Record<string, StateData> = {
+  AL: { name: "Alabama", rate: 0.05 },
+  AK: { name: "Alaska", rate: 0, note: "No state income tax" },
+  AZ: { name: "Arizona", rate: 0.048 },
+  AR: { name: "Arkansas", rate: 0.049 },
+  CA: { name: "California", rate: 0, note: "CA does not tax lottery winnings" },
+  CO: { name: "Colorado", rate: 0.044 },
+  CT: { name: "Connecticut", rate: 0.0699 },
+  DE: { name: "Delaware", rate: 0.066 },
+  FL: { name: "Florida", rate: 0, note: "No state income tax" },
+  GA: { name: "Georgia", rate: 0.0575 },
+  HI: { name: "Hawaii", rate: 0.11 },
+  ID: { name: "Idaho", rate: 0.058 },
+  IL: { name: "Illinois", rate: 0.0495 },
+  IN: { name: "Indiana", rate: 0.0323 },
+  IA: { name: "Iowa", rate: 0.06 },
+  KS: { name: "Kansas", rate: 0.057 },
+  KY: { name: "Kentucky", rate: 0.05 },
+  LA: { name: "Louisiana", rate: 0.0425 },
+  ME: { name: "Maine", rate: 0.0715 },
+  MD: { name: "Maryland", rate: 0.0875, note: "Includes avg local tax" },
+  MA: { name: "Massachusetts", rate: 0.05 },
+  MI: { name: "Michigan", rate: 0.0425 },
+  MN: { name: "Minnesota", rate: 0.0985 },
+  MS: { name: "Mississippi", rate: 0.05 },
+  MO: { name: "Missouri", rate: 0.0495 },
+  MT: { name: "Montana", rate: 0.0675 },
+  NE: { name: "Nebraska", rate: 0.0684 },
+  NV: { name: "Nevada", rate: 0, note: "No state income tax" },
+  NH: { name: "New Hampshire", rate: 0, note: "No income tax on winnings" },
+  NJ: { name: "New Jersey", rate: 0.1075 },
+  NM: { name: "New Mexico", rate: 0.059 },
+  NY: { name: "New York", rate: 0.109 },
+  NC: { name: "North Carolina", rate: 0.0475 },
+  ND: { name: "North Dakota", rate: 0.025 },
+  OH: { name: "Ohio", rate: 0.0399 },
+  OK: { name: "Oklahoma", rate: 0.0475 },
+  OR: { name: "Oregon", rate: 0.08 },
+  PA: { name: "Pennsylvania", rate: 0.0307 },
+  RI: { name: "Rhode Island", rate: 0.0599 },
+  SC: { name: "South Carolina", rate: 0.065 },
+  SD: { name: "South Dakota", rate: 0, note: "No state income tax" },
+  TN: { name: "Tennessee", rate: 0, note: "No state income tax" },
+  TX: { name: "Texas", rate: 0, note: "No state income tax" },
+  UT: { name: "Utah", rate: 0.0495 },
+  VT: { name: "Vermont", rate: 0.0875 },
+  VA: { name: "Virginia", rate: 0.0575 },
+  WA: { name: "Washington", rate: 0, note: "No state income tax" },
+  WV: { name: "West Virginia", rate: 0.065 },
+  WI: { name: "Wisconsin", rate: 0.0765 },
+  WY: { name: "Wyoming", rate: 0, note: "No state income tax" },
+  DC: { name: "Washington D.C.", rate: 0.1075 },
+};
+
+export const FEDERAL_TAX_RATE = 0.37;
+export const LUMP_SUM_FACTOR = 0.60; // Cash value is ~60% of advertised jackpot
