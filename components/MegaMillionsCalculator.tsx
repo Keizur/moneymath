@@ -124,7 +124,7 @@ export default function MegaMillionsCalculator() {
           What Would You Actually Take Home?
         </h1>
         <p className="text-gray-500 text-lg">
-          Real Mega Millions payout after federal and state taxes — no fluff.
+          Real Mega Millions payout after federal and state taxes.
         </p>
         {jackpotData && (
           <p className="text-3xl font-extrabold text-gray-900 mt-4">

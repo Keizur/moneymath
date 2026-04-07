@@ -14,9 +14,30 @@ function parseDollarAmount(str: string): number | null {
   return Math.round(num);
 }
 
+function parseDrawDateUTC(labelText: string): string | null {
+  // "Today at 11:00 pm EDT" → today's date
+  if (/today/i.test(labelText)) {
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const m = String(now.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(now.getUTCDate()).padStart(2, "0");
+    return `${y}-${m}-${d}T03:00:00.000Z`; // 11pm ET ≈ 3am UTC next day, use today for label matching
+  }
+  // "Tuesday, Apr 8, 2026 at 11:00 pm EDT"
+  const match = labelText.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d+),?\s+(\d{4})/i);
+  if (match) {
+    try {
+      return new Date(`${match[0]} 23:00:00 GMT-0400`).toISOString();
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export async function GET() {
   try {
-    const res = await fetch("https://www.megamillions.com/", {
+    const res = await fetch("https://www.lotteryusa.com/mega-millions/", {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -25,37 +46,39 @@ export async function GET() {
       next: { revalidate: 3600 },
     });
 
-    if (!res.ok) throw new Error("Failed to fetch megamillions.com");
+    if (!res.ok) throw new Error(`lotteryusa.com responded ${res.status}`);
 
     const html = await res.text();
 
-    // Parse jackpot (advertised annuity value)
+    // Jackpot: "$100 Million Cash value:"
     const jackpotMatch = html.match(
-      /game-jackpot-number text-xxxl[^>]*>\s*([^<]+)</
+      /\$([\d,]+(?:\.\d+)?)\s*(Million|Billion)\s+Cash\s+value/i
     );
-    const jackpotRaw = jackpotMatch?.[1]?.trim() ?? null;
+    const jackpotRaw = jackpotMatch
+      ? `$${jackpotMatch[1].replace(/,/g, "")} ${jackpotMatch[2]}`
+      : null;
     const jackpot = jackpotRaw ? parseDollarAmount(jackpotRaw) : null;
 
-    // Parse cash value
+    // Cash value: "Cash value: $45.3 Million"
     const cashMatch = html.match(
-      /game-jackpot-number text-lg[^>]*>\s*([^<]+)</
+      /Cash\s+value:\s*\$([\d,]+(?:\.\d+)?)\s*(Million|Billion)/i
     );
-    const cashRaw = cashMatch?.[1]?.trim() ?? null;
+    const cashRaw = cashMatch
+      ? `$${cashMatch[1].replace(/,/g, "")} ${cashMatch[2]}`
+      : null;
     const cashValue = cashRaw ? parseDollarAmount(cashRaw) : null;
 
-    // Parse next drawing date
-    const drawDateMatch = html.match(/data-drawdateutc="([^"]+)"/);
-    const drawDateUTC = drawDateMatch?.[1] ?? null;
-
-    // Parse next drawing label
-    const nextDrawingSection = html.match(
-      /id="next-drawing"[\s\S]*?title-date[^>]*>\s*([^<]+)</
+    // Draw label: "Next Mega Millions draw ... Today at 11:00 pm EDT"
+    const drawLabelMatch = html.match(
+      /Next\s+Mega\s+Millions\s+draw[\s\S]{0,100}?((?:Today|Tomorrow|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)[^\n<"]+)/i
     );
-    const nextDrawingLabel = nextDrawingSection?.[1]?.trim() ?? null;
+    const rawLabel = drawLabelMatch?.[1]?.trim() ?? null;
+    const nextDrawingLabel = rawLabel ?? null;
+    const drawDateUTC = rawLabel ? parseDrawDateUTC(rawLabel) : null;
 
     if (!jackpot) {
       return NextResponse.json(
-        { error: "Could not parse jackpot" },
+        { error: "Could not parse Mega Millions jackpot" },
         { status: 502 }
       );
     }
