@@ -7,6 +7,9 @@ export const metadata: Metadata = {
     "Calculate your real Powerball payout after federal and state taxes. See exactly what you'd take home with lump sum vs annuity for all 50 states. Free, fast, and accurate.",
   keywords:
     "powerball payout calculator, lottery after tax, powerball lump sum, powerball annuity, lottery tax calculator",
+  verification: {
+    google: "QfSXI5Z0_CQg8ZC8vLC64FhNgHIbxL1kXsjJej5h0JQ",
+  },
   openGraph: {
     title: "Powerball Payout Calculator | MoneyMath",
     description: "See exactly what you'd take home after taxes.",
