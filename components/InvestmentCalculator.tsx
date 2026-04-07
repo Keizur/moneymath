@@ -10,6 +10,18 @@ const RATE_PRESETS = [
   { label: "Aggressive", value: 10, sub: "growth stocks" },
 ];
 
+const BENCHMARKS = [
+  { ticker: "VOO",   name: "S&P 500 ETF",       type: "ETF",   return: 12.7 },
+  { ticker: "QQQ",   name: "NASDAQ-100 ETF",     type: "ETF",   return: 18.4 },
+  { ticker: "NVDA",  name: "NVIDIA",             type: "Stock", return: 52.4 },
+  { ticker: "MSFT",  name: "Microsoft",          type: "Stock", return: 25.6 },
+  { ticker: "AAPL",  name: "Apple",              type: "Stock", return: 16.3 },
+  { ticker: "TSLA",  name: "Tesla",              type: "Stock", return: 29.2 },
+  { ticker: "META",  name: "Meta (Facebook)",    type: "Stock", return: 22.1 },
+  { ticker: "AMZN",  name: "Amazon",             type: "Stock", return: 23.8 },
+  { ticker: "GOOGL", name: "Alphabet (Google)",  type: "Stock", return: 19.2 },
+];
+
 function parseDollarInput(raw: string): number {
   return parseFloat(raw.replace(/[^0-9.]/g, "")) || 0;
 }
@@ -27,10 +39,16 @@ export default function InvestmentCalculator() {
   const [rate, setRate] = useState(7);
   const [customRate, setCustomRate] = useState("");
   const [usingCustomRate, setUsingCustomRate] = useState(false);
+  const [selectedBenchmark, setSelectedBenchmark] = useState<string | null>(null);
 
   const initialAmount = parseDollarInput(initialRaw);
   const monthlyContribution = parseDollarInput(monthlyRaw);
-  const effectiveRate = usingCustomRate ? parseFloat(customRate) || 0 : rate;
+  const benchmarkRate = BENCHMARKS.find((b) => b.ticker === selectedBenchmark)?.return ?? rate;
+  const effectiveRate = selectedBenchmark
+    ? benchmarkRate
+    : usingCustomRate
+    ? parseFloat(customRate) || 0
+    : rate;
   const years = Math.max(retireAge - currentAge, 1);
 
   const result = useMemo(
@@ -40,6 +58,13 @@ export default function InvestmentCalculator() {
 
   function handleRatePreset(value: number) {
     setRate(value);
+    setUsingCustomRate(false);
+    setCustomRate("");
+    setSelectedBenchmark(null);
+  }
+
+  function handleBenchmark(ticker: string) {
+    setSelectedBenchmark(ticker);
     setUsingCustomRate(false);
     setCustomRate("");
   }
@@ -158,10 +183,11 @@ export default function InvestmentCalculator() {
               step={0.5}
               placeholder="Custom rate %"
               value={customRate}
-              onFocus={() => setUsingCustomRate(true)}
+              onFocus={() => { setUsingCustomRate(true); setSelectedBenchmark(null); }}
               onChange={(e) => {
                 setCustomRate(e.target.value);
                 setUsingCustomRate(true);
+                setSelectedBenchmark(null);
               }}
               className={`w-full px-4 py-3 border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white transition-colors ${
                 usingCustomRate ? "border-green-500 ring-2 ring-green-500" : "border-gray-200"
@@ -169,6 +195,50 @@ export default function InvestmentCalculator() {
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">%</span>
           </div>
+        </div>
+
+        {/* Benchmark Table */}
+        <div className="mb-8">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+            Or pick a real benchmark <span className="font-normal normal-case text-gray-300">· approx. 10-yr avg return</span>
+          </p>
+          <div className="rounded-xl border border-gray-100 overflow-hidden">
+            {BENCHMARKS.map((b, i) => {
+              const isSelected = selectedBenchmark === b.ticker;
+              const isEtf = b.type === "ETF";
+              return (
+                <button
+                  key={b.ticker}
+                  onClick={() => handleBenchmark(b.ticker)}
+                  className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors text-left border-b last:border-b-0 border-gray-100 ${
+                    isSelected
+                      ? "bg-green-50 border-green-100"
+                      : "bg-white hover:bg-gray-50"
+                  } ${i === 0 ? "" : ""}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`font-bold text-sm w-12 ${isSelected ? "text-green-700" : "text-gray-900"}`}>
+                      {b.ticker}
+                    </span>
+                    <div>
+                      <span className={`text-sm ${isSelected ? "text-green-700" : "text-gray-600"}`}>{b.name}</span>
+                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded font-medium ${isEtf ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-500"}`}>
+                        {b.type}
+                      </span>
+                    </div>
+                  </div>
+                  <span className={`font-extrabold text-sm tabular-nums ${
+                    b.return >= 40 ? "text-purple-600" :
+                    b.return >= 20 ? "text-green-600" :
+                    "text-green-500"
+                  }`}>
+                    {b.return}%
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-gray-300 mt-2">Past performance does not predict future results.</p>
         </div>
 
         {/* Divider */}
