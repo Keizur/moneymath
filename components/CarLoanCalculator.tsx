@@ -266,6 +266,25 @@ export default function CarLoanCalculator() {
         </div>
       </div>
 
+      {/* Affiliate CTA — swap href for your LendingTree auto affiliate link */}
+      <div className="bg-purple-50 border border-purple-100 rounded-2xl p-5 mb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-bold text-gray-900 mb-1">Find a better auto loan rate</p>
+            <p className="text-sm text-gray-500">Get pre-qualified offers from multiple lenders — no hard credit pull required.</p>
+          </div>
+          <a
+            href="https://www.lendingtree.com/auto/"
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+            className="shrink-0 bg-purple-600 text-white font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-purple-700 transition-colors whitespace-nowrap"
+          >
+            Check My Rate →
+          </a>
+        </div>
+        <p className="text-xs text-gray-400 mt-3">Sponsored · LendingTree</p>
+      </div>
+
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-100 p-4">
           <p className="text-xs text-gray-400 uppercase font-semibold tracking-wide mb-1">Shorter Is Cheaper</p>

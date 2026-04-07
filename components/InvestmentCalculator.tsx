@@ -32,8 +32,8 @@ function formatDollarInput(value: number): string {
 }
 
 export default function InvestmentCalculator() {
-  const [currentAge, setCurrentAge] = useState(25);
-  const [retireAge, setRetireAge] = useState(65);
+  const [currentAge, setCurrentAge] = useState("25");
+  const [retireAge, setRetireAge] = useState("65");
   const [initialRaw, setInitialRaw] = useState("10,000");
   const [monthlyRaw, setMonthlyRaw] = useState("500");
   const [rate, setRate] = useState(7);
@@ -43,12 +43,13 @@ export default function InvestmentCalculator() {
 
   // Withdrawal
   const [withdrawalEnabled, setWithdrawalEnabled] = useState(false);
-  const [withdrawalAge, setWithdrawalAge] = useState(65);
+  const [withdrawalAge, setWithdrawalAge] = useState("65");
   const [withdrawalRaw, setWithdrawalRaw] = useState("5,000");
+  const [endAge, setEndAge] = useState("85");
 
   // Tooltip
   const [tooltip, setTooltip] = useState<{
-    age: number; value: number; svgX: number; svgY: number; phase: "growth" | "withdrawal";
+    age: number; value: number; svgX: number; svgY: number; phase: "growth" | "withdrawal"; clientX: number; clientY: number;
   } | null>(null);
 
   const initialAmount = parseDollarInput(initialRaw);
@@ -61,7 +62,12 @@ export default function InvestmentCalculator() {
     ? parseFloat(customRate) || 0
     : rate;
 
-  const years = Math.max(retireAge - currentAge, 1);
+  const currentAgeNum = parseInt(currentAge) || 25;
+  const retireAgeNum = parseInt(retireAge) || 65;
+  const withdrawalAgeNum = parseInt(withdrawalAge) || currentAgeNum + 1;
+  const endAgeNum = parseInt(endAge) || 85;
+
+  const years = Math.max(retireAgeNum - currentAgeNum, 1);
 
   const result = useMemo(
     () =>
@@ -69,13 +75,13 @@ export default function InvestmentCalculator() {
         initialAmount,
         monthlyContribution,
         effectiveRate,
-        currentAge,
-        retireAge,
-        withdrawalEnabled ? withdrawalAge : null,
+        currentAgeNum,
+        retireAgeNum,
+        withdrawalEnabled ? withdrawalAgeNum : null,
         monthlyWithdrawal,
-        withdrawalEnabled ? 90 : retireAge
+        withdrawalEnabled ? endAgeNum : retireAgeNum
       ),
-    [initialAmount, monthlyContribution, effectiveRate, currentAge, retireAge, withdrawalEnabled, withdrawalAge, monthlyWithdrawal]
+    [initialAmount, monthlyContribution, effectiveRate, currentAgeNum, retireAgeNum, withdrawalEnabled, withdrawalAgeNum, monthlyWithdrawal, endAgeNum]
   );
 
   function handleRatePreset(value: number) {
@@ -146,6 +152,8 @@ export default function InvestmentCalculator() {
       svgX: toX(nearest.age),
       svgY: toY(nearest.value),
       phase: nearest.phase,
+      clientX: e.clientX,
+      clientY: e.clientY,
     });
   }
 
@@ -181,10 +189,11 @@ export default function InvestmentCalculator() {
               min={10}
               max={80}
               value={currentAge}
-              onChange={(e) => {
-                const v = parseInt(e.target.value) || 0;
-                setCurrentAge(v);
-                if (v >= retireAge) setRetireAge(v + 1);
+              onChange={(e) => setCurrentAge(e.target.value)}
+              onBlur={() => {
+                const v = Math.max(10, Math.min(80, currentAgeNum));
+                setCurrentAge(String(v));
+                if (v >= retireAgeNum) setRetireAge(String(v + 1));
               }}
               className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-base font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
             />
@@ -193,10 +202,12 @@ export default function InvestmentCalculator() {
             <label className="block text-sm font-semibold text-gray-700 mb-2">Retire at Age</label>
             <input
               type="number"
-              min={currentAge + 1}
+              min={currentAgeNum + 1}
               max={100}
               value={retireAge}
-              onChange={(e) => setRetireAge(parseInt(e.target.value) || currentAge + 1)}
+              onChange={(e) => setRetireAge(e.target.value)}
+              onBlur={() => setRetireAge(String(Math.max(currentAgeNum + 1, Math.min(100, retireAgeNum))))}
+
               className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-base font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
             />
           </div>
@@ -343,20 +354,21 @@ export default function InvestmentCalculator() {
             </button>
           </div>
           {withdrawalEnabled && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Start withdrawing at age</label>
+                <label className="block text-xs text-gray-500 mb-1.5">Start at age</label>
                 <input
                   type="number"
-                  min={currentAge + 1}
-                  max={89}
+                  min={currentAgeNum + 1}
+                  max={endAgeNum - 1}
                   value={withdrawalAge}
-                  onChange={(e) => setWithdrawalAge(parseInt(e.target.value) || currentAge + 1)}
+                  onChange={(e) => setWithdrawalAge(e.target.value)}
+                  onBlur={() => setWithdrawalAge(String(Math.max(currentAgeNum + 1, Math.min(endAgeNum - 1, withdrawalAgeNum))))}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Monthly withdrawal</label>
+                <label className="block text-xs text-gray-500 mb-1.5">Monthly amount</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">$</span>
                   <input
@@ -368,6 +380,18 @@ export default function InvestmentCalculator() {
                   />
                 </div>
               </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Show until age</label>
+                <input
+                  type="number"
+                  min={withdrawalAgeNum + 1}
+                  max={120}
+                  value={endAge}
+                  onChange={(e) => setEndAge(e.target.value)}
+                  onBlur={() => setEndAge(String(Math.max(withdrawalAgeNum + 1, Math.min(120, endAgeNum))))}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                />
+              </div>
             </div>
           )}
           {withdrawalEnabled && result.balanceDepletedAge && (
@@ -377,7 +401,7 @@ export default function InvestmentCalculator() {
           )}
           {withdrawalEnabled && !result.balanceDepletedAge && (
             <p className="text-xs text-green-600 mt-2 font-medium">
-              ✓ Your portfolio sustains this withdrawal through age 90.
+              ✓ Portfolio sustains this withdrawal through age {endAge}.
             </p>
           )}
         </div>
@@ -472,26 +496,24 @@ export default function InvestmentCalculator() {
                 </svg>
 
                 {/* Tooltip bubble */}
-                {tooltip && (
-                  <div
-                    className="absolute pointer-events-none z-10"
-                    style={{
-                      left: `${(tooltip.svgX / chartWidth) * 100}%`,
-                      top: `${(tooltip.svgY / chartHeight) * 100}%`,
-                      transform: "translate(-50%, calc(-100% - 12px))",
-                    }}
-                  >
-                    <div className={`rounded-lg px-3 py-2 text-xs whitespace-nowrap shadow-lg text-white ${
-                      tooltip.phase === "withdrawal" ? "bg-orange-500" : "bg-gray-900"
-                    }`}>
-                      <div className="opacity-75 font-medium">Age {tooltip.age}</div>
-                      <div className="font-extrabold text-sm">{formatCurrency(tooltip.value)}</div>
+                {tooltip && (() => {
+                  const vw = window.innerWidth;
+                  const xShift = tooltip.clientX < 90 ? "0%" : tooltip.clientX > vw - 90 ? "-100%" : "-50%";
+                  const yShift = tooltip.clientY < 160 ? "16px" : "calc(-100% - 16px)";
+                  return (
+                    <div
+                      className="fixed pointer-events-none z-50"
+                      style={{ left: tooltip.clientX, top: tooltip.clientY, transform: `translate(${xShift}, ${yShift})` }}
+                    >
+                      <div className={`rounded-lg px-3 py-2 text-xs whitespace-nowrap shadow-lg text-white ${
+                        tooltip.phase === "withdrawal" ? "bg-orange-500" : "bg-gray-900"
+                      }`}>
+                        <div className="opacity-75 font-medium">Age {tooltip.age}</div>
+                        <div className="font-extrabold text-sm">{formatCurrency(tooltip.value)}</div>
+                      </div>
                     </div>
-                    <div className={`w-2 h-2 rotate-45 mx-auto -mt-1 ${
-                      tooltip.phase === "withdrawal" ? "bg-orange-500" : "bg-gray-900"
-                    }`} />
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               <div className="flex items-center gap-4 px-1 pb-1 mt-1">
@@ -513,7 +535,7 @@ export default function InvestmentCalculator() {
         {/* Result Hero */}
         <div className="bg-green-50 rounded-2xl p-6 text-center mb-6">
           <p className="text-sm font-semibold text-green-700 mb-1 uppercase tracking-wide">
-            Portfolio at Age {withdrawalEnabled ? 90 : retireAge}
+            Portfolio at Age {withdrawalEnabled ? endAge : retireAge}
           </p>
           <p className="text-5xl font-extrabold text-green-600 mb-1">
             {formatMillions(result.finalValue)}
@@ -560,18 +582,18 @@ export default function InvestmentCalculator() {
                 <div
                   key={i}
                   className={`flex justify-between items-center px-4 py-2.5 rounded-xl text-sm ${
-                    m.age === retireAge
+                    m.age === retireAgeNum
                       ? "bg-green-50 font-semibold"
                       : m.phase === "withdrawal"
                       ? "bg-orange-50"
                       : "bg-gray-50"
                   }`}
                 >
-                  <span className={m.age === retireAge ? "text-green-700" : m.phase === "withdrawal" ? "text-orange-600" : "text-gray-600"}>
+                  <span className={m.age === retireAgeNum ? "text-green-700" : m.phase === "withdrawal" ? "text-orange-600" : "text-gray-600"}>
                     Age {m.age} ({m.year}yr)
                     {m.phase === "withdrawal" && <span className="text-xs ml-1 opacity-60">· withdrawing</span>}
                   </span>
-                  <span className={m.age === retireAge ? "text-green-700" : m.phase === "withdrawal" ? "text-orange-600" : "text-gray-900"}>
+                  <span className={m.age === retireAgeNum ? "text-green-700" : m.phase === "withdrawal" ? "text-orange-600" : "text-gray-900"}>
                     {formatMillions(m.value)}
                   </span>
                 </div>
@@ -579,6 +601,25 @@ export default function InvestmentCalculator() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Affiliate CTA — Robinhood referral */}
+      <div className="bg-green-50 border border-green-100 rounded-2xl p-5 mb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-bold text-gray-900 mb-1">Start investing commission-free</p>
+            <p className="text-sm text-gray-500">Join Robinhood and earn rewards just for signing up — no account minimums.</p>
+          </div>
+          <a
+            href="/go/robinhood"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 bg-green-600 text-white font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-green-700 transition-colors whitespace-nowrap"
+          >
+            Get Started →
+          </a>
+        </div>
+        <p className="text-xs text-gray-400 mt-3">Referral · Robinhood</p>
       </div>
 
       {/* Info Cards */}

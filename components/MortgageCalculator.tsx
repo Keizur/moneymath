@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { calculateLoan, maxLoanFromPayment } from "@/lib/loanCalculations";
 import { formatCurrency } from "@/lib/calculations";
 
@@ -34,6 +34,24 @@ export default function MortgageCalculator() {
   const [downPct, setDownPct] = useState("20");
   const [term, setTerm] = useState<15 | 30>(30);
   const [rate, setRate] = useState("6.9");
+  const [liveRates, setLiveRates] = useState<{ rate30: number; rate15: number; fetchedAt: string } | null>(null);
+  const [ratesLoading, setRatesLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/mortgage-rates")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.rate30 || data.rate15) {
+          setLiveRates(data);
+          // Pre-fill the rate input with today's live rate
+          const liveRate = term === 30 ? data.rate30 : data.rate15;
+          if (liveRate) setRate(liveRate.toFixed(2));
+        }
+      })
+      .catch(() => {/* silently fall back to default */})
+      .finally(() => setRatesLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Monthly cost assumptions
   const [taxAnnualRaw, setTaxAnnualRaw] = useState("");   // annual $
@@ -47,7 +65,7 @@ export default function MortgageCalculator() {
 
   // UI
   const [showAmort, setShowAmort] = useState(false);
-  const [chartTooltip, setChartTooltip] = useState<{ year: number; balance: number; svgX: number; svgY: number } | null>(null);
+  const [chartTooltip, setChartTooltip] = useState<{ year: number; balance: number; svgX: number; svgY: number; clientX: number; clientY: number } | null>(null);
 
   // Derived loan values
   const homePrice = parseDollar(priceRaw);
@@ -129,7 +147,7 @@ export default function MortgageCalculator() {
           <div className="px-6 pb-6 border-t border-gray-100">
             <div className="grid grid-cols-2 gap-4 mt-4 mb-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Gross Monthly Income</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Gross Monthly Income <span className="font-normal text-gray-400">(pre-tax)</span></label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                   <input
@@ -165,7 +183,7 @@ export default function MortgageCalculator() {
                   <div>
                     <p className="text-xs text-blue-600 opacity-70">Max monthly payment</p>
                     <p className="text-lg font-extrabold text-blue-700">{formatCurrency(affordMaxPayment)}</p>
-                    <p className="text-xs text-blue-600 opacity-60">28/36% rules</p>
+                    <p className="text-xs text-blue-600 opacity-60">28/36% rules · how lenders qualify you</p>
                   </div>
                   <div>
                     <p className="text-xs text-blue-600 opacity-70">Estimated max home price</p>
@@ -241,7 +259,31 @@ export default function MortgageCalculator() {
             <input type="number" min={0} max={30} step={0.1} value={rate} onChange={(e) => setRate(e.target.value)} className="w-full px-4 pr-10 py-3.5 border border-gray-200 rounded-xl text-base font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">%</span>
           </div>
-          <p className="text-xs text-gray-400 mt-1.5">Check Bankrate or your lender for today's current rates.</p>
+          {ratesLoading ? (
+            <p className="text-xs text-gray-400 mt-1.5">Loading today's rate…</p>
+          ) : liveRates ? (
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              {liveRates.rate30 && (
+                <button
+                  onClick={() => setRate(liveRates.rate30.toFixed(2))}
+                  className="text-xs bg-green-50 text-green-700 font-semibold px-2.5 py-1 rounded-full hover:bg-green-100 transition-colors"
+                >
+                  Use today's 30yr: {liveRates.rate30.toFixed(2)}%
+                </button>
+              )}
+              {liveRates.rate15 && (
+                <button
+                  onClick={() => setRate(liveRates.rate15.toFixed(2))}
+                  className="text-xs bg-green-50 text-green-700 font-semibold px-2.5 py-1 rounded-full hover:bg-green-100 transition-colors"
+                >
+                  15yr: {liveRates.rate15.toFixed(2)}%
+                </button>
+              )}
+              <span className="text-xs text-gray-400">via Mortgage News Daily</span>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 mt-1.5">Check your lender for today's current rates.</p>
+          )}
         </div>
 
         <div className="border-t border-gray-100 mb-6"></div>
@@ -398,7 +440,7 @@ export default function MortgageCalculator() {
                       const pct = (e.clientX - rect.left) / rect.width;
                       const yr = pct * term;
                       const nearest = pts.reduce((best, p) => Math.abs(p.year - yr) < Math.abs(best.year - yr) ? p : best);
-                      setChartTooltip({ year: nearest.year, balance: nearest.balance, svgX: toX(nearest.year), svgY: toY(nearest.balance) });
+                      setChartTooltip({ year: nearest.year, balance: nearest.balance, svgX: toX(nearest.year), svgY: toY(nearest.balance), clientX: e.clientX, clientY: e.clientY });
                     }}
                     onMouseLeave={() => setChartTooltip(null)}
                   >
@@ -420,18 +462,22 @@ export default function MortgageCalculator() {
                       </>
                     )}
                   </svg>
-                  {chartTooltip && (
-                    <div
-                      className="absolute pointer-events-none z-10"
-                      style={{ left: `${(chartTooltip.svgX / cW) * 100}%`, top: `${(chartTooltip.svgY / cH) * 100}%`, transform: "translate(-50%, calc(-100% - 12px)" }}
-                    >
-                      <div className="bg-gray-900 text-white rounded-lg px-3 py-2 text-xs whitespace-nowrap shadow-lg">
-                        <div className="opacity-70">Year {chartTooltip.year}</div>
-                        <div className="font-extrabold text-sm">{formatCurrency(chartTooltip.balance)}</div>
+                  {chartTooltip && (() => {
+                    const vw = window.innerWidth;
+                    const xShift = chartTooltip.clientX < 90 ? "0%" : chartTooltip.clientX > vw - 90 ? "-100%" : "-50%";
+                    const yShift = chartTooltip.clientY < 160 ? "16px" : "calc(-100% - 16px)";
+                    return (
+                      <div
+                        className="fixed pointer-events-none z-50"
+                        style={{ left: chartTooltip.clientX, top: chartTooltip.clientY, transform: `translate(${xShift}, ${yShift})` }}
+                      >
+                        <div className="bg-gray-900 text-white rounded-lg px-3 py-2 text-xs whitespace-nowrap shadow-lg">
+                          <div className="opacity-70">Year {chartTooltip.year}</div>
+                          <div className="font-extrabold text-sm">{formatCurrency(chartTooltip.balance)}</div>
+                        </div>
                       </div>
-                      <div className="w-2 h-2 bg-gray-900 rotate-45 mx-auto -mt-1" />
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -456,7 +502,6 @@ export default function MortgageCalculator() {
                   <span className="text-right">Balance</span>
                 </div>
                 {result.amortization
-                  .filter((_, i) => i % (term === 30 ? 5 : 1) === 0 || _ === result.amortization[result.amortization.length - 1])
                   .map((row) => (
                     <div key={row.year} className={`grid grid-cols-4 px-3 py-2 border-t border-gray-100 hover:bg-gray-50 ${needsPMI && pmiDropYear === row.year ? "bg-green-50" : ""}`}>
                       <span className="text-gray-600">
@@ -472,6 +517,25 @@ export default function MortgageCalculator() {
             )}
           </div>
         )}
+      </div>
+
+      {/* Affiliate CTA — swap href for your LendingTree mortgage affiliate link */}
+      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-bold text-gray-900 mb-1">Ready to shop mortgage rates?</p>
+            <p className="text-sm text-gray-500">Compare personalized offers from top lenders in minutes — won&apos;t affect your credit score.</p>
+          </div>
+          <a
+            href="https://www.lendingtree.com/home/mortgage/"
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+            className="shrink-0 bg-blue-600 text-white font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-blue-700 transition-colors whitespace-nowrap"
+          >
+            Compare Rates →
+          </a>
+        </div>
+        <p className="text-xs text-gray-400 mt-3">Sponsored · LendingTree</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-6">
