@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { STATE_TAX_RATES } from "@/lib/taxRates";
 import { calculateLumpSum, calculateAnnuity, formatCurrency, formatMillions } from "@/lib/calculations";
 
@@ -22,6 +22,20 @@ export default function LotteryCalculator() {
   const [selectedState, setSelectedState] = useState("TX");
   const [payoutType, setPayoutType] = useState<"lump" | "annuity">("lump");
   const [copied, setCopied] = useState(false);
+  const [stateSearch, setStateSearch] = useState("");
+  const [stateDropdownOpen, setStateDropdownOpen] = useState(false);
+  const stateRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (stateRef.current && !stateRef.current.contains(e.target as Node)) {
+        setStateDropdownOpen(false);
+        setStateSearch("");
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     fetch("/api/jackpot")
@@ -157,22 +171,56 @@ export default function LotteryCalculator() {
         </div>
 
         {/* State Selector */}
-        <div className="mb-8">
+        <div className="mb-8" ref={stateRef}>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
             Your State
           </label>
-          <select
-            value={selectedState}
-            onChange={(e) => setSelectedState(e.target.value)}
-            className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-base font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
-          >
-            {sortedStates.map(([code, data]) => (
-              <option key={code} value={code}>
-                {data.name}{" "}
-                {data.rate === 0 ? "(No State Tax)" : `(${(data.rate * 100).toFixed(2)}%)`}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder={`${stateData.name} — tap to change`}
+              value={stateDropdownOpen ? stateSearch : ""}
+              onFocus={() => setStateDropdownOpen(true)}
+              onChange={(e) => setStateSearch(e.target.value)}
+              className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-base font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+            />
+            {!stateDropdownOpen && (
+              <div className="absolute inset-0 px-4 py-3.5 flex items-center pointer-events-none">
+                <span className="text-base font-medium text-gray-800">
+                  {stateData.name}{" "}
+                  <span className="text-gray-400 font-normal">
+                    {stateData.rate === 0 ? "(No State Tax)" : `(${(stateData.rate * 100).toFixed(2)}%)`}
+                  </span>
+                </span>
+              </div>
+            )}
+            {stateDropdownOpen && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                {sortedStates
+                  .filter(([, data]) =>
+                    data.name.toLowerCase().includes(stateSearch.toLowerCase())
+                  )
+                  .map(([code, data]) => (
+                    <button
+                      key={code}
+                      onMouseDown={() => {
+                        setSelectedState(code);
+                        setStateDropdownOpen(false);
+                        setStateSearch("");
+                      }}
+                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-green-50 flex justify-between items-center ${
+                        selectedState === code ? "bg-green-50 font-semibold text-green-700" : "text-gray-700"
+                      }`}
+                    >
+                      <span>{data.name}</span>
+                      <span className="text-gray-400 text-xs">
+                        {data.rate === 0 ? "No Tax" : `${(data.rate * 100).toFixed(2)}%`}
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
           {stateData.note && (
             <p className="text-xs text-green-600 mt-1.5 font-medium">
               ✓ {stateData.note}
