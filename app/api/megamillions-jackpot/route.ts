@@ -73,14 +73,18 @@ export async function GET() {
     {
       url: "https://www.lotteryusa.com/mega-millions/",
       extract: (html: string) => {
-        const jackpotMatch = html.match(
-          /\$([\d,]+(?:\.\d+)?)\s*(Million|Billion)[\s\S]{0,50}?Cash\s+value/i
+        // Jackpot: find first $X Million/Billion after "est. jackpot"
+        const jackpotSection = html.match(/est\.?\s+jackpot[\s\S]{0,800}/i);
+        const jackpotMatch = jackpotSection?.[0]?.match(
+          /\$([\d,]+(?:\.\d+)?)\s*(Million|Billion)/i
         );
+        // Cash value: "Cash value: $X Million"
         const cashMatch = html.match(
-          /Cash\s+value:?\s*\$([\d,]+(?:\.\d+)?)\s*(Million|Billion)/i
+          /[Cc]ash\s+value:?\s*\$([\d,]+(?:\.\d+)?)\s*(Million|Billion)/i
         );
+        // Draw date: day of week pattern
         const dateMatch = html.match(
-          /(?:Today|Tomorrow|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)[^\n<"]{0,60}/i
+          /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Today|Tomorrow)[^<\n"]{0,40}(?:am|pm)[^<\n"]{0,20}/i
         );
         if (!jackpotMatch) return null;
         const jackpot = parseDollarAmount(`${jackpotMatch[1]} ${jackpotMatch[2]}`);
@@ -88,7 +92,7 @@ export async function GET() {
         const cashFromMatch = cashMatch
           ? parseDollarAmount(`${cashMatch[1]} ${cashMatch[2]}`)
           : null;
-        return { jackpot, cashOverride: cashFromMatch ?? undefined, dateStr: dateMatch?.[0] ?? null };
+        return { jackpot, cashOverride: cashFromMatch ?? undefined, dateStr: dateMatch?.[0]?.trim() ?? null };
       },
     },
   ];
@@ -104,7 +108,9 @@ export async function GET() {
       }
       const result = source.extract(html);
       if (!result) {
-        errors.push(`${source.url} → parse failed (html length: ${html.length}, snippet: ${html.slice(0, 200)})`);
+        const jackpotIdx = html.toLowerCase().indexOf("jackpot");
+        const debugSnippet = jackpotIdx >= 0 ? html.slice(jackpotIdx, jackpotIdx + 300) : html.slice(0, 300);
+        errors.push(`${source.url} → parse failed (len: ${html.length}, around 'jackpot': ${debugSnippet})`);
         continue;
       }
 
