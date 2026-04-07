@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
 import { STATE_TAX_RATES } from "@/lib/taxRates";
 import { calculateLumpSum, calculateAnnuity, formatCurrency, formatMillions } from "@/lib/calculations";
 
@@ -15,16 +14,8 @@ interface JackpotData {
   fetchedAt: string;
 }
 
-interface WinningNumbers {
-  whiteBalls: number[];
-  powerball: number;
-  powerPlay: string | null;
-  drawDate: string | null;
-}
-
-export default function LotteryCalculator() {
+export default function MegaMillionsCalculator() {
   const [jackpotData, setJackpotData] = useState<JackpotData | null>(null);
-  const [winningNumbers, setWinningNumbers] = useState<WinningNumbers | null>(null);
   const [jackpot, setJackpot] = useState(500_000_000);
   const [cashValue, setCashValue] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +38,7 @@ export default function LotteryCalculator() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/jackpot")
+    fetch("/api/megamillions-jackpot")
       .then((r) => r.json())
       .then((data: JackpotData) => {
         if (data.jackpot) {
@@ -58,17 +49,6 @@ export default function LotteryCalculator() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/numbers")
-      .then((r) => r.json())
-      .then((data: WinningNumbers) => {
-        if (data.whiteBalls?.length === 5 && data.powerball) {
-          setWinningNumbers(data);
-        }
-      })
-      .catch(() => {});
   }, []);
 
   function getJackpotLabel(drawDateUTC: string | null): string {
@@ -103,8 +83,7 @@ export default function LotteryCalculator() {
     const takeHome = formatMillions(result.takeHome);
     const jackpotLabel = jackpotData?.jackpotRaw ?? formatMillions(jackpot);
     const payoutLabel = payoutType === "lump" ? "lump sum" : "annuity";
-    const text = `The current ${jackpotLabel} Powerball jackpot → ${takeHome} take-home after taxes in ${stateData.name} (${payoutLabel}). What's yours? moneymath.com`;
-
+    const text = `The current ${jackpotLabel} Mega Millions jackpot → ${takeHome} take-home after taxes in ${stateData.name} (${payoutLabel}). What's yours? getmoneymath.com`;
     if (navigator.share) {
       navigator.share({ text });
     } else {
@@ -117,7 +96,7 @@ export default function LotteryCalculator() {
     if (!result || !stateData) return;
     const takeHome = formatCurrency(result.takeHome);
     const jackpotLabel = jackpotData?.jackpotRaw ?? formatMillions(jackpot);
-    const text = `Powerball ${jackpotLabel} jackpot → ${takeHome} take-home in ${stateData.name} — moneymath.com`;
+    const text = `Mega Millions ${jackpotLabel} jackpot → ${takeHome} take-home in ${stateData.name} — getmoneymath.com`;
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -125,19 +104,6 @@ export default function LotteryCalculator() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      {/* I Won link */}
-      <div className="flex justify-end mb-2">
-        <Link
-          href="/i-won"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-full transition-colors"
-        >
-          I Won — Now What?
-          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
-      </div>
-
       {/* Header */}
       <div className="text-center mb-10">
         {loading ? (
@@ -145,32 +111,31 @@ export default function LotteryCalculator() {
             Fetching jackpot...
           </div>
         ) : jackpotData ? (
-          <div className="inline-flex items-center gap-2 bg-green-50 text-green-700 text-sm font-medium px-4 py-1.5 rounded-full mb-4">
-            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            Next Drawing: {jackpotData.nextDrawingLabel ?? "Tonight"} · 10:59 PM ET
+          <div className="inline-flex items-center gap-2 bg-yellow-50 text-yellow-700 text-sm font-medium px-4 py-1.5 rounded-full mb-4">
+            <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
+            Next Drawing: {jackpotData.nextDrawingLabel ?? "Friday"} · 11:00 PM ET
           </div>
         ) : (
           <div className="inline-flex items-center gap-2 bg-yellow-50 text-yellow-700 text-sm font-medium px-4 py-1.5 rounded-full mb-4">
-            Powerball · Enter jackpot below
+            Mega Millions · Enter jackpot below
           </div>
         )}
         <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
           What Would You Actually Take Home?
         </h1>
         <p className="text-gray-500 text-lg">
-          Real Powerball payout after federal and state taxes — no fluff.
+          Real Mega Millions payout after federal and state taxes — no fluff.
         </p>
         {jackpotData && (
           <p className="text-3xl font-extrabold text-gray-900 mt-4">
             {getJackpotLabel(jackpotData.drawDateUTC)} Jackpot:{" "}
-            <span className="text-green-500">{jackpotData.jackpotRaw}</span>
+            <span className="text-yellow-500">{jackpotData.jackpotRaw}</span>
           </p>
         )}
       </div>
 
       {/* Calculator Card */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-        {/* Jackpot Display */}
         {jackpotData && (
           <div className="mb-6 bg-gray-50 rounded-xl p-4">
             <div className="flex justify-between items-center text-sm">
@@ -232,7 +197,7 @@ export default function LotteryCalculator() {
               readOnly={!stateDropdownOpen}
               className={`w-full px-4 py-3.5 pr-20 border rounded-xl text-sm font-medium focus:outline-none bg-white cursor-pointer transition-colors ${
                 stateDropdownOpen
-                  ? "border-green-500 ring-2 ring-green-500"
+                  ? "border-yellow-500 ring-2 ring-yellow-400"
                   : "border-gray-200 hover:border-gray-300"
               }`}
             />
@@ -261,8 +226,8 @@ export default function LotteryCalculator() {
                         setStateDropdownOpen(false);
                         setStateSearch("");
                       }}
-                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-green-50 flex justify-between items-center ${
-                        selectedState === code ? "bg-green-50 font-semibold text-green-700" : "text-gray-700"
+                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-yellow-50 flex justify-between items-center ${
+                        selectedState === code ? "bg-yellow-50 font-semibold text-yellow-700" : "text-gray-700"
                       }`}
                     >
                       <span>{data.name}</span>
@@ -275,13 +240,12 @@ export default function LotteryCalculator() {
             )}
           </div>
           {stateData?.note && (
-            <p className="text-xs text-green-600 mt-1.5 font-medium">
+            <p className="text-xs text-yellow-600 mt-1.5 font-medium">
               ✓ {stateData.note}
             </p>
           )}
         </div>
 
-        {/* Divider */}
         <div className="border-t border-gray-100 mb-6"></div>
 
         {!result ? (
@@ -290,7 +254,6 @@ export default function LotteryCalculator() {
           </div>
         ) : (
           <>
-            {/* Results Breakdown */}
             <div className="space-y-3 mb-6">
               <div className="flex justify-between items-center">
                 <span className="text-gray-500 text-sm">
@@ -298,25 +261,22 @@ export default function LotteryCalculator() {
                 </span>
                 <span className="font-semibold text-gray-900">{formatCurrency(result.jackpot)}</span>
               </div>
-
               {payoutType === "lump" && (
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500 text-sm">
                     Cash Value (lump sum
                     {jackpotData?.cashValueRaw
-                      ? ` · ${jackpotData.cashValueRaw} per Powerball`
+                      ? ` · ${jackpotData.cashValueRaw} per Mega Millions`
                       : " · ~60%"}
                     )
                   </span>
                   <span className="font-semibold text-gray-900">{formatCurrency(result.cashValue)}</span>
                 </div>
               )}
-
               <div className="flex justify-between items-center">
                 <span className="text-gray-500 text-sm">Federal Tax (37%)</span>
                 <span className="font-semibold text-red-500">-{formatCurrency(result.federalTax)}</span>
               </div>
-
               <div className="flex justify-between items-center">
                 <span className="text-gray-500 text-sm">
                   {stateData!.name} State Tax (
@@ -329,28 +289,28 @@ export default function LotteryCalculator() {
             </div>
 
             {/* Take Home Hero */}
-            <div className="bg-green-50 rounded-2xl p-6 text-center mb-6">
-              <p className="text-sm font-semibold text-green-700 mb-1 uppercase tracking-wide">
+            <div className="bg-yellow-50 rounded-2xl p-6 text-center mb-6">
+              <p className="text-sm font-semibold text-yellow-700 mb-1 uppercase tracking-wide">
                 {payoutType === "lump" ? "You Take Home" : "Total After-Tax (30 yrs)"}
               </p>
-              <p className="text-5xl font-extrabold text-green-600 mb-1">
+              <p className="text-5xl font-extrabold text-yellow-600 mb-1">
                 {formatMillions(result.takeHome)}
               </p>
-              <p className="text-green-700 text-sm opacity-75">{formatCurrency(result.takeHome)}</p>
+              <p className="text-yellow-700 text-sm opacity-75">{formatCurrency(result.takeHome)}</p>
               {payoutType === "annuity" && result.annualPayment && (
                 <div className="mt-3 flex justify-center gap-6">
                   <div>
-                    <p className="text-green-600 text-xs opacity-70">Per Year</p>
-                    <p className="text-green-700 text-sm font-bold">{formatCurrency(result.annualPayment)}</p>
+                    <p className="text-yellow-600 text-xs opacity-70">Per Year</p>
+                    <p className="text-yellow-700 text-sm font-bold">{formatCurrency(result.annualPayment)}</p>
                   </div>
-                  <div className="border-l border-green-200"></div>
+                  <div className="border-l border-yellow-200"></div>
                   <div>
-                    <p className="text-green-600 text-xs opacity-70">Per Month</p>
-                    <p className="text-green-700 text-sm font-bold">{formatCurrency(result.monthlyPayment!)}</p>
+                    <p className="text-yellow-600 text-xs opacity-70">Per Month</p>
+                    <p className="text-yellow-700 text-sm font-bold">{formatCurrency(result.monthlyPayment!)}</p>
                   </div>
                 </div>
               )}
-              <p className="text-green-600 text-xs mt-2 opacity-60">
+              <p className="text-yellow-600 text-xs mt-2 opacity-60">
                 Effective tax rate: {(result.effectiveTaxRate * 100).toFixed(1)}%
               </p>
             </div>
@@ -396,40 +356,6 @@ export default function LotteryCalculator() {
           </button>
         </div>
       </div>
-
-      {/* Winning Numbers */}
-      {winningNumbers && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-bold text-gray-900">Last Winning Numbers</h2>
-              {winningNumbers.drawDate && (
-                <p className="text-xs text-gray-400 mt-0.5">{winningNumbers.drawDate}</p>
-              )}
-            </div>
-            {winningNumbers.powerPlay && (
-              <span className="bg-red-100 text-red-700 text-xs font-bold px-3 py-1.5 rounded-full">
-                Power Play {winningNumbers.powerPlay}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {winningNumbers.whiteBalls.map((n, i) => (
-              <div
-                key={i}
-                className="w-11 h-11 rounded-full bg-gray-100 border-2 border-gray-200 flex items-center justify-center text-sm font-extrabold text-gray-800"
-              >
-                {n}
-              </div>
-            ))}
-            <div className="w-3 h-0.5 bg-gray-300 mx-1"></div>
-            <div className="w-11 h-11 rounded-full bg-red-500 border-2 border-red-600 flex items-center justify-center text-sm font-extrabold text-white">
-              {winningNumbers.powerball}
-            </div>
-          </div>
-          <p className="text-xs text-gray-400 mt-3">White balls · <span className="text-red-400">Red = Powerball</span></p>
-        </div>
-      )}
 
       {/* Info Cards */}
       <div className="grid grid-cols-2 gap-4 mb-6">

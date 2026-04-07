@@ -9,6 +9,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     {
+      url: "https://www.getmoneymath.com/megamillions",
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 1,
+    },
+    {
       url: "https://www.getmoneymath.com/investment",
       lastModified: new Date(),
       changeFrequency: "monthly",

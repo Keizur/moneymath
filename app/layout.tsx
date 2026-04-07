@@ -5,6 +5,7 @@ import Link from "next/link";
 import Script from "next/script";
 
 const GA_ID = "G-GRJR3SDJD7";
+const ADS_ID = "ca-pub-7559044648994834";
 
 export const metadata: Metadata = {
   title: "MoneyMath – Free Financial Calculators",
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
     type: "website",
   },
   other: {
-    "google-adsense-account": "ca-pub-7559044648994834",
+    "google-adsense-account": `ca-pub-7559044648994834`,
   },
 };
 
@@ -33,19 +34,20 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <meta name="google-adsense-account" content="ca-pub-7559044648994834" />
+        <meta name="google-adsense-account" content={ADS_ID} />
+        {/* GA4 — in <head> so Google's tag detector finds it in raw HTML */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_ID}');`,
+          }}
+        />
       </head>
       <body className="bg-gray-50 min-h-screen">
-        <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
-        <Script id="google-analytics" strategy="afterInteractive">{`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', '${GA_ID}');
-        `}</Script>
         <Script
           async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7559044648994834"
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADS_ID}`}
           crossOrigin="anonymous"
           strategy="afterInteractive"
         />

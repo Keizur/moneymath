@@ -8,6 +8,14 @@
   box-sizing: border-box;
 }
 
+html {
+  overflow-x: clip;
+}
+
 body {
   font-family: 'Inter', system-ui, sans-serif;
+}
+
+.nav-links::-webkit-scrollbar {
+  display: none;
 }
