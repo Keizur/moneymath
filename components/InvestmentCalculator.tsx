@@ -513,7 +513,7 @@ export default function InvestmentCalculator() {
         {/* Result Hero */}
         <div className="bg-green-50 rounded-2xl p-6 text-center mb-6">
           <p className="text-sm font-semibold text-green-700 mb-1 uppercase tracking-wide">
-            Portfolio at Age {retireAge}
+            Portfolio at Age {withdrawalEnabled ? 90 : retireAge}
           </p>
           <p className="text-5xl font-extrabold text-green-600 mb-1">
             {formatMillions(result.finalValue)}
