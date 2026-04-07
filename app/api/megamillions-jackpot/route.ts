@@ -132,7 +132,10 @@ export async function GET() {
       const jackpotRaw = formatRaw(jackpot);
       const cashValueRaw = formatRaw(cashValue);
       const drawDateUTC = dateStr ? parseDrawDateUTC(dateStr) : null;
-      const nextDrawingLabel = dateStr ?? null;
+      // Strip time portion ("at 11:00 pm EDT") so component can append it consistently
+      const nextDrawingLabel = dateStr
+        ? dateStr.replace(/\s+at\s+\d+.*$/i, "").trim()
+        : null;
 
       return NextResponse.json({
         jackpot,
